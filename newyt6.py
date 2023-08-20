@@ -13,18 +13,18 @@ import sqlalchemy
 from sqlalchemy.exc import IntegrityError
 from datetime import datetime
 import pandas as pd
-#import isodate
+
 
 
 # CONNECTION SEGMENT
 # YouTube API connection
-api_key = "AIzaSyDwRTgFFHmLkPbRWsNQFRxWKfJ3LO77rzk"
+api_key = "your key"
 youtube = build("youtube", "v3", developerKey=api_key)
+
 # mongodb
 mongo_connection = "mongodb://localhost:27017/"
-database_name = "Youtube_data_harvesting"
-collection_name = "channels"
-
+database_name = "your dbname"
+collection_name = "your collectionname"
 
 client = MongoClient(mongo_connection)
 mydb = client[database_name]
@@ -33,9 +33,9 @@ mycol = mydb[collection_name]
 
 # SQL
 ytdb = mysql.connector.connect(host="localhost",
-                                user="root",
-                                password="AjithatML6",
-                                database= "youtube_db3" )
+                                user="your username",
+                                password="your pass",
+                                database= "your dbname" )
 
 cursor = ytdb.cursor()
 
@@ -293,11 +293,7 @@ def migrate_to_sql(selected_chnls):
 
     # Migrating data from dataframe to SQL
         
-# mysql+mysqlconnector://user1:pscale_pw_abc123@us-east.connect.psdb.cloud:3306/sqlalchemy
-
-# 'mysql://dt_admin:dt2016@localhost:3308/dreamteam_db'
 # ("mysql+mysqlconnector://user:password@host/database")
-
 
     engine = sqlalchemy.create_engine('mysql://root:AjithatML6@127.0.0.1:3306/youtube_db3')
     
