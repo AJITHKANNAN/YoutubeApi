@@ -1,9 +1,3 @@
-#!/usr/bin/env python
-# coding: utf-8
-
-# In[4]:
-
-
 import streamlit as st
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
@@ -13,18 +7,18 @@ import sqlalchemy
 from sqlalchemy.exc import IntegrityError
 from datetime import datetime
 import pandas as pd
-
+#import isodate
 
 
 # CONNECTION SEGMENT
 # YouTube API connection
-api_key = "your key"
+api_key = "AIzaSyDwRTgFFHmLkPbRWsNQFRxWKfJ3LO77rzk"
 youtube = build("youtube", "v3", developerKey=api_key)
-
 # mongodb
 mongo_connection = "mongodb://localhost:27017/"
-database_name = "your dbname"
-collection_name = "your collectionname"
+database_name = "Youtube_data_harvesting"
+collection_name = "channels"
+
 
 client = MongoClient(mongo_connection)
 mydb = client[database_name]
@@ -33,9 +27,9 @@ mycol = mydb[collection_name]
 
 # SQL
 ytdb = mysql.connector.connect(host="localhost",
-                                user="your username",
-                                password="your pass",
-                                database= "your dbname" )
+                                user="root",
+                                password="AjithatML6",
+                                database= "youtube_db3" )
 
 cursor = ytdb.cursor()
 
@@ -46,7 +40,8 @@ cursor = ytdb.cursor()
 
 
 def get_channel_details(y_tube, channel_id):
-    fields = 'items(snippet(title, description, publishedAt, thumbnails(default(url))), contentDetails('              'relatedPlaylists(uploads)), statistics(videoCount, viewCount, subscriberCount))'
+    fields = 'items(snippet(title, description, publishedAt, thumbnails(default(url))), contentDetails(' \
+             'relatedPlaylists(uploads)), statistics(videoCount, viewCount, subscriberCount))'
 
     response = y_tube.channels().list(
         part='snippet, contentDetails, statistics',
@@ -123,7 +118,8 @@ def get_all_video_ids(y_tube, playlist_id):
 def get_video_details(y_tube, video_ids):
     v_ids = video_ids
     all_videos = []
-    fields = 'items(snippet(title, description,publishedAt, thumbnails(default(url))), contentDetails(caption, '              'duration), statistics(viewCount, likeCount, dislikeCount, favoriteCount, commentCount))'
+    fields = 'items(snippet(title, description,publishedAt, thumbnails(default(url))), contentDetails(caption, ' \
+             'duration), statistics(viewCount, likeCount, dislikeCount, favoriteCount, commentCount))'
     for v_id in v_ids:
         response = y_tube.videos().list(
             part='snippet,contentDetails,statistics',
@@ -293,7 +289,11 @@ def migrate_to_sql(selected_chnls):
 
     # Migrating data from dataframe to SQL
         
+# mysql+mysqlconnector://user1:pscale_pw_abc123@us-east.connect.psdb.cloud:3306/sqlalchemy
+
+# 'mysql://dt_admin:dt2016@localhost:3308/dreamteam_db'
 # ("mysql+mysqlconnector://user:password@host/database")
+
 
     engine = sqlalchemy.create_engine('mysql://root:AjithatML6@127.0.0.1:3306/youtube_db3')
     
@@ -434,27 +434,27 @@ def data_query(chosen_query):
 
 # STREAMLIT interactive
 def main():
-    st.set_page_config(page_title='Youtube data harvesting')
-    st.header('Youtube data harvesting using youtube API ')
-    st.subheader('Data Collection through API')
+    st.set_page_config(page_title='Youtube data harvesting and Warehousing')
+    st.header('Youtube data harvesting and Warehousing using youtube API ')
+    #st.subheader('Data Collection through Youtube API')
     c1, c2 = st.columns(2)
     with c1:
         channel_ids = st.text_input('Please provide the comma separated channel ID(s) and press enter')
-        if st.button('Find'):
+        if st.button('Search'):
             channels = get_channel_data(channel_ids)
             st.session_state.channels = channels
             st.write('Channel Details:', *channels)  # To display the fetched channel details
     with c2:
         channel_names = mycol.distinct('Channel.Channel_Name')
-        if st.button('Store Data in MongoDB'):
+        if st.button('Upload to MongoDB'):
             channels = st.session_state.channels
             if channels is not None:
                 for channel in channels:
                     if channel['Channel']['Channel_Name'] not in channel_names:
                         mycol.insert_one(channel)
-                st.write('Data stored in MongoDB')
+                st.write('Data Loaded successfully in MongoDB')
             else:
-                st.write('Channel details not fetched')
+                st.write('Channel details cannot able to fetch')
 
         channel_names = mycol.distinct('Channel.Channel_Name')  # Dropdown list of channels added to MongoDB
 
@@ -462,11 +462,11 @@ def main():
             selected_channels = st.multiselect('Select a channel', channel_names)  # Dropdown selection box
 
             # Migrating selected channel to SQL Database
-            if st.button('Migrate to SQL Database'):
+            if st.button('Migrate to SQL DB'):
                 if migrate_to_sql(selected_channels):
-                    st.write('Data migrated to SQL Database')
+                    st.write('Data migrated to SQL db successfully')
                 else:
-                    st.write('Data already in SQL Database')
+                    st.write('Data already in SQL db')
         
         # Performing SQL queries over the migrated data
         cursor.execute('select * from ychannel2')
@@ -482,25 +482,22 @@ def main():
                           'Videos with most comments with channel name']
 
             selected_query = st.selectbox('Select a query', query_list)
-            if st.button('Get Report'):
+            if st.button('Results'):
                 if selected_query:
                     df = data_query(selected_query)
                     st.dataframe(df)
                 else:
-                    st.write('Select a query and then press find')
+                    st.write('Select any from the listed queries and then press find')
 
-        if st.button('Clear MongoDB Collection'):
+        if st.button('Delete MongoDB Collections'):
             mycol.delete_many({})
-            st.write('Cleared MongoDB Collection')
+            st.write('Successfully deleted MongoDB Collections')
 
-        if st.button('Clear sql tables'):
+        if st.button('Delete tables in SQL'):
             cursor.execute('delete from ychannel2')
             ytdb.commit()
-            st.write('SQL Tables Cleared')
+            st.write('Deleted tables in SQL database')
 
 
 if __name__ == '__main__':
     main()
-
-
-# https://github.com/NAVEEN-RAJ-C/YouTube-Data-Harvesting-and-Warehousing-using-SQL-MongoDB-and-Streamlit/blob/main/youtube_data_harvest_18-05-2023_to_28_05_2023.py
