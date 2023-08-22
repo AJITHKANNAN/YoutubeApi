@@ -7,17 +7,16 @@ import sqlalchemy
 from sqlalchemy.exc import IntegrityError
 from datetime import datetime
 import pandas as pd
-#import isodate
 
 
 # CONNECTION SEGMENT
 # YouTube API connection
-api_key = "AIzaSyDwRTgFFHmLkPbRWsNQFRxWKfJ3LO77rzk"
+api_key = "yourkey" #newkey
 youtube = build("youtube", "v3", developerKey=api_key)
 # mongodb
 mongo_connection = "mongodb://localhost:27017/"
-database_name = "Youtube_data_harvesting"
-collection_name = "channels"
+database_name = "db name"
+collection_name = "coll name"
 
 
 client = MongoClient(mongo_connection)
@@ -28,8 +27,8 @@ mycol = mydb[collection_name]
 # SQL
 ytdb = mysql.connector.connect(host="localhost",
                                 user="root",
-                                password="AjithatML6",
-                                database= "youtube_db3" )
+                                password="your pwd",
+                                database= "your db" )
 
 cursor = ytdb.cursor()
 
@@ -63,6 +62,33 @@ def get_channel_details(y_tube, channel_id):
     return channel_details
 
 
+
+
+
+def get_all_video_ids(y_tube, playlist_id):
+    video_ids = []
+    next_page_token = None
+
+    while True:
+        response = y_tube.playlistItems().list(
+            part='snippet',
+            playlistId=playlist_id,
+            maxResults=50,
+            pageToken=next_page_token
+        ).execute()
+
+        for item in response['items']:
+            video_id = item['snippet']['resourceId']['videoId']
+            video_ids.append(video_id)
+
+        next_page_token = response.get('nextPageToken')
+
+        if not next_page_token:
+            break
+
+    return video_ids
+
+#get Playlist ids
 def get_all_playlist_ids(y_tube, channel_id):
     playlists = {}
     next_page_token = None
@@ -90,68 +116,8 @@ def get_all_playlist_ids(y_tube, channel_id):
     return playlists
 
 
-def get_all_video_ids(y_tube, playlist_id):
-    video_ids = []
-    next_page_token = None
 
-    while True:
-        response = y_tube.playlistItems().list(
-            part='snippet',
-            playlistId=playlist_id,
-            maxResults=50,
-            pageToken=next_page_token
-        ).execute()
-
-        for item in response['items']:
-            video_id = item['snippet']['resourceId']['videoId']
-            video_ids.append(video_id)
-
-        next_page_token = response.get('nextPageToken')
-
-        if not next_page_token:
-            break
-
-    return video_ids
-
-
-# Get video details
-def get_video_details(y_tube, video_ids):
-    v_ids = video_ids
-    all_videos = []
-    fields = 'items(snippet(title, description,publishedAt, thumbnails(default(url))), contentDetails(caption, ' \
-             'duration), statistics(viewCount, likeCount, dislikeCount, favoriteCount, commentCount))'
-    for v_id in v_ids:
-        response = y_tube.videos().list(
-            part='snippet,contentDetails,statistics',
-            id=v_id['vid_id'],
-            fields=fields
-        ).execute()
-
-        video = response['items'][0]
-        #duration = isodate.parse_duration(video['contentDetails']['duration'])
-        #duration = duration.__str__()
-        video_details = {
-            'Video_ID': v_id['vid_id'],
-            'Playlist_ID': v_id['pl_id'],  # playlist_id,
-            'Video_Title': video['snippet']['title'],
-            'Playlist_Name': v_id['pl_title'],  # playlist_name,
-            'Description': video['snippet']['description'],
-            'Published_At': video['snippet']['publishedAt'],
-            #'Duration': duration,  # video_duration,
-            'Thumbnail': video['snippet']['thumbnails']['default']['url'],
-            'Caption': video['contentDetails']['caption'],  # video_caption,
-            'View_Count': int(video['statistics'].get('viewCount', 0)),
-            'Like_Count': int(video['statistics'].get('likeCount', 0)),  # int(like_count),
-            'Dislike_Count': int(video['statistics'].get('dislikeCount', 0)),  # int(dislike_count),
-            'Favorite_Count': int(video['statistics'].get('favoriteCount', 0)),  # int(favorite_count),
-            'Comment_Count': int(video['statistics'].get('commentCount', 0)),  # int(comment_count),
-            'Comments': get_comments(y_tube, v_id['vid_id'])
-        }
-        all_videos.append(video_details)
-    return all_videos
-
-
-# To get Comments of each video
+# getting comments of each video
 
 def get_comments(y_tube, video_id):
     next_page_token = None
@@ -190,6 +156,40 @@ def get_comments(y_tube, video_id):
         if e.resp.status == 403:
             return comments
 
+# Get video details
+def get_video_details(y_tube, video_ids):
+    v_ids = video_ids
+    all_videos = []
+    fields = 'items(snippet(title, description,publishedAt, thumbnails(default(url))), contentDetails(caption, ' \
+             'duration), statistics(viewCount, likeCount, dislikeCount, favoriteCount, commentCount))'
+    for v_id in v_ids:
+        response = y_tube.videos().list(
+            part='snippet,contentDetails,statistics',
+            id=v_id['vid_id'],
+            fields=fields
+        ).execute()
+
+        video = response['items'][0]
+        video_details = {
+            'Video_ID': v_id['vid_id'],
+            'Playlist_ID': v_id['pl_id'],  # playlist_id,
+            'Video_Title': video['snippet']['title'],
+            'Playlist_Name': v_id['pl_title'],  # playlist_name,
+            'Description': video['snippet']['description'],
+            'Published_At': video['snippet']['publishedAt'],
+             'Thumbnail': video['snippet']['thumbnails']['default']['url'],
+            'Caption': video['contentDetails']['caption'],  # video_caption,
+            'View_Count': int(video['statistics'].get('viewCount', 0)),
+            'Like_Count': int(video['statistics'].get('likeCount', 0)),  # int(like_count),
+            'Dislike_Count': int(video['statistics'].get('dislikeCount', 0)),  # int(dislike_count),
+            'Favorite_Count': int(video['statistics'].get('favoriteCount', 0)),  # int(favorite_count),
+            'Comment_Count': int(video['statistics'].get('commentCount', 0)),  # int(comment_count),
+            'Comments': get_comments(y_tube, v_id['vid_id'])
+        }
+        all_videos.append(video_details)
+    return all_videos
+
+
 
 def get_channel_data(channel_ids):
     channl_ids = channel_ids.split(', ')
@@ -224,13 +224,15 @@ def get_channel_data(channel_ids):
 
 def migrate_to_sql(selected_chnls):
     ch_df = pd.DataFrame()
-    pl_df = pd.DataFrame()
     vdo_df = pd.DataFrame()
     cmt_df = pd.DataFrame()
+    pl_df = pd.DataFrame()
+    
     chs = []
     p_lists = []
     vds = []
     cmts = []
+  
     # Unstructured to structured dataframe
     for selected_chnl in selected_chnls:
         yt_data = mycol.find_one({'Channel.Channel_Name': selected_chnl})
@@ -287,7 +289,7 @@ def migrate_to_sql(selected_chnls):
                 cmts.append(cmt)
         cmt_df = pd.DataFrame(cmts)
 
-    # Migrating data from dataframe to SQL
+# Migrating data from dataframe to SQL
         
 # mysql+mysqlconnector://user1:pscale_pw_abc123@us-east.connect.psdb.cloud:3306/sqlalchemy
 
@@ -295,7 +297,7 @@ def migrate_to_sql(selected_chnls):
 # ("mysql+mysqlconnector://user:password@host/database")
 
 
-    engine = sqlalchemy.create_engine('mysql://root:AjithatML6@127.0.0.1:3306/youtube_db3')
+    engine = sqlalchemy.create_engine('mysql://root:pass@127.0.0.1:3306/dbname')
     
     try:
         # Migrating channel details into channel table
